@@ -30,6 +30,7 @@ export interface GigProviderProfile extends BaseProfile {
   genre?: undefined;
   videoUrl?: undefined;
   photos?: string[]; // Add this line
+  audioTracks?: AudioTrack[];
 }
 
 export type Profile = BandProfile | GigProviderProfile;
@@ -99,4 +100,8 @@ export interface ShareProfileFormData {
   userId: string;
   profileType: string;
   shareMessage?: string;
+}
+export interface AudioTrack {
+  name: string;
+  url: string;
 }
