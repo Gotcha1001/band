@@ -9,8 +9,8 @@ export interface BaseProfile {
   description?: string;
   website?: string;
   email?: string; // New field
-  phoneNumber?: string;
-  headerImage?: string;
+  phoneNumber?: string; // New field
+  headerImage?: string; // New field
   facebookUrl?: string; // New field
   instagramUrl?: string; // New field
 }
@@ -19,18 +19,18 @@ export interface BandProfile extends BaseProfile {
   profileType: "band";
   genre: string;
   videoUrl?: string;
-  services?: undefined;
+  services?: undefined; // Ensures services are not used for bands
   bandMembers?: string[]; // New field
-  audioTracks?: string[];
+  audioTracks?: AudioTrack[]; // Fix: Use consistent type for audioTracks
 }
 
 export interface GigProviderProfile extends BaseProfile {
   profileType: "gigProvider";
   services: string;
-  genre?: undefined;
-  videoUrl?: undefined;
-  photos?: string[]; // Add this line
-  audioTracks?: AudioTrack[];
+  genre?: undefined; // Ensures genre is not used for gig providers
+  videoUrl?: undefined; // Gig providers do not have video URLs
+  photos?: string[]; // New field
+  audioTracks?: AudioTrack[]; // Fix: Use consistent type for audioTracks
 }
 
 export type Profile = BandProfile | GigProviderProfile;
@@ -44,20 +44,20 @@ export interface ProfileResponse {
   longitude?: number;
   description?: string;
   website?: string;
-  genre?: string;
-  services?: string;
-  videoUrl?: string;
+  genre?: string; // Optional because it's specific to bands
+  services?: string; // Optional because it's specific to gig providers
+  videoUrl?: string; // Optional because it's specific to bands
   email?: string; // New field
   phoneNumber?: string; // New field
-  headerImage?: string; // Add this line
+  headerImage?: string; // New field
   facebookUrl?: string; // New field
   instagramUrl?: string; // New field
-  bandMembers?: string[]; // New field
-  photos?: string[]; // Add this line only
+  bandMembers?: string[]; // Optional because it's specific to bands
+  photos?: string[]; // Optional because it's specific to gig providers
   userId: string;
   createdAt: Date;
   updatedAt: Date;
-  audioTracks?: string[];
+  audioTracks?: AudioTrack[]; // Fix: Use consistent type for audioTracks
 }
 
 export interface ProfileFormData {
@@ -68,24 +68,24 @@ export interface ProfileFormData {
   longitude?: number;
   description?: string;
   website?: string;
-  genre?: string;
-  services?: string;
-  videoUrl?: string;
+  genre?: string; // Optional because it's specific to bands
+  services?: string; // Optional because it's specific to gig providers
+  videoUrl?: string; // Optional because it's specific to bands
   email?: string; // New field
   phoneNumber?: string; // New field
-  headerImage?: string; // Add this line
+  headerImage?: string; // New field
   facebookUrl?: string; // New field
   instagramUrl?: string; // New field
-  bandMembers?: string[]; // New field
-  photos?: string[]; // Add this line only
-  audioTracks?: string[];
+  bandMembers?: string[]; // Optional because it's specific to bands
+  photos?: string[]; // Optional because it's specific to gig providers
+  audioTracks?: AudioTrack[]; // Fix: Use consistent type for audioTracks
 }
 
 export interface SharedProfileData {
   id: string;
   userId: string;
   sharedBy: string;
-  profileType: string;
+  profileType: "band" | "gigProvider";
   shareDate: Date;
   shareMessage?: string;
   user: {
@@ -98,9 +98,10 @@ export interface SharedProfileData {
 
 export interface ShareProfileFormData {
   userId: string;
-  profileType: string;
+  profileType: "band" | "gigProvider";
   shareMessage?: string;
 }
+
 export interface AudioTrack {
   name: string;
   url: string;
