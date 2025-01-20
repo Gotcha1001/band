@@ -1,17 +1,16 @@
-// 3. Update the AudioUpload component (components/AudioUpload.tsx)
-import { useState } from "react";
 import {
+  deleteObject,
+  getDownloadURL,
   ref,
   uploadBytes,
-  getDownloadURL,
-  deleteObject,
-} from "firebase/storage";
+} from "@firebase/storage";
+import { useState } from "react";
+import { Alert, AlertDescription } from "./ui/alert";
+import { Button } from "./ui/button";
 import { storage } from "@/lib/firebase";
-import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface AudioUploadProps {
-  onUploadComplete: (urls: string[]) => void;
+  onUploadComplete: (tracks: string[]) => void;
   existingTracks?: string[];
 }
 
@@ -26,7 +25,6 @@ export default function AudioUpload({
     try {
       setUploading(true);
       setError(null);
-
       const files = e.target.files;
       if (!files) return;
 
@@ -48,15 +46,17 @@ export default function AudioUpload({
       const uploadPromises = Array.from(files).map(async (file) => {
         const fileName = `audio-tracks/${Date.now()}-${file.name}`;
         const storageRef = ref(storage, fileName);
-
         await uploadBytes(storageRef, file);
-        const downloadURL = await getDownloadURL(storageRef);
-
-        return downloadURL;
+        return getDownloadURL(storageRef);
       });
 
-      const urls = await Promise.all(uploadPromises);
-      onUploadComplete([...existingTracks, ...urls]);
+      const newUrls = await Promise.all(uploadPromises);
+
+      if (newUrls && newUrls.length > 0) {
+        onUploadComplete([...existingTracks, ...newUrls]);
+      } else {
+        throw new Error("No valid tracks uploaded");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -66,11 +66,9 @@ export default function AudioUpload({
 
   const handleDelete = async (trackUrl: string) => {
     try {
-      // Extract the file path from the URL
       const fileRef = ref(storage, trackUrl);
       await deleteObject(fileRef);
-
-      const newTracks = existingTracks.filter((t) => t !== trackUrl);
+      const newTracks = existingTracks.filter((url) => url !== trackUrl);
       onUploadComplete(newTracks);
     } catch {
       setError("Failed to delete track");
@@ -112,16 +110,16 @@ export default function AudioUpload({
       {existingTracks.length > 0 && (
         <div className="space-y-2">
           <h4 className="font-medium">Uploaded Tracks:</h4>
-          {existingTracks.map((track, index) => (
+          {existingTracks.map((url, index) => (
             <div
-              key={track}
+              key={url}
               className="flex items-center justify-between p-2 bg-gray-100 rounded"
             >
               <span>Track {index + 1}</span>
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={() => handleDelete(track)}
+                onClick={() => handleDelete(url)}
               >
                 Remove
               </Button>

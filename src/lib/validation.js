@@ -88,12 +88,6 @@ export const gigProviderSchema = z.object({
 // Add to your existing validation schema
 export const audioTrackSchema = z.object({
   audioTracks: z
-    .array(
-      z.object({
-        name: z.string().min(1, "Track name is required"),
-        url: z.string().url("Invalid audio track URL"),
-      })
-    )
-    .max(4, "Cannot have more than 4 audio tracks")
-    .optional(),
+    .array(z.string().url("Invalid audio track URL"))
+    .max(4, "Cannot have more than 4 audio tracks"),
 });

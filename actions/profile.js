@@ -3,7 +3,6 @@ import { db } from "@/lib/prisma";
 import { audioTrackSchema } from "@/lib/validation";
 import { auth } from "@clerk/nextjs/server";
 
-// In your server actions file
 export async function updateAudioTracks({ audioTracks, userId }) {
   try {
     const { userId: clerkUserId } = await auth();
