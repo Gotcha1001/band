@@ -55,7 +55,7 @@ model Band {
   imageUrl     String?
   bandMembers  String[]
   photos       String[]
-  audioTracks  String[]
+  audioTracks  Json?
   location     String
   latitude     Float?
   longitude    Float?

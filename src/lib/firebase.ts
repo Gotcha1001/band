@@ -1,7 +1,6 @@
 // src/lib/firebase.ts
 import { initializeApp } from "firebase/app";
 import { getStorage } from "firebase/storage";
-import { getAnalytics } from "firebase/analytics";
 
 // Firebase configuration from environment variables
 const firebaseConfig = {
@@ -19,6 +18,5 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize other services
 const storage = getStorage(app);
-const analytics = getAnalytics(app);
 
-export { storage, analytics };
+export { storage };

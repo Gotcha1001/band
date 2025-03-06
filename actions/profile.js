@@ -3,25 +3,142 @@ import { db } from "@/lib/prisma";
 import { audioTrackSchema } from "@/lib/validation";
 import { auth } from "@clerk/nextjs/server";
 
-export async function updateAudioTracks({ audioTracks, userId }) {
+export async function updateAudioTracks({ audioTracks }) {
   try {
+    console.log("🔍 Received data for updateAudioTracks:", { audioTracks });
+
+    // 🔥 Get authenticated user ID from Clerk
     const { userId: clerkUserId } = await auth();
     if (!clerkUserId) {
+      console.error("❌ Error: User is not authenticated");
       throw new Error("User is not authenticated");
     }
 
-    const validatedData = audioTrackSchema.parse({ audioTracks });
+    console.log("✅ Authenticated user:", clerkUserId);
 
+    // 🔍 Fetch user from database using Clerk ID
+    const currentUser = await db.user.findUnique({
+      where: { clerkUserId },
+      select: { id: true, profileType: true },
+    });
+
+    if (!currentUser) {
+      console.error(
+        "❌ Error: User not found in database for Clerk ID:",
+        clerkUserId
+      );
+      throw new Error("User not found in database");
+    }
+
+    console.log("✅ Found user in database:", currentUser);
+
+    // 🔍 Find the band/gigProvider linked to this user
+    const userProfile = await db.band.findFirst({
+      where: { userId: currentUser.id }, // Use internal DB user ID
+    });
+
+    if (!userProfile) {
+      console.error("❌ No band profile found for user ID:", currentUser.id);
+      throw new Error("Band profile not found");
+    }
+
+    console.log("✅ Found band profile:", userProfile.id);
+
+    // ✅ MODIFICATION: Allow empty audioTracks array for deletion
+    if (!audioTracks || !Array.isArray(audioTracks)) {
+      console.error("❌ Error: Invalid audioTracks received", audioTracks);
+      throw new Error("audioTracks must be a non-null array");
+    }
+
+    // ✅ REMOVED: No longer throwing error for empty array
+    // This allows complete deletion of all tracks
+    console.log(`✅ Processing ${audioTracks.length} audio tracks`);
+
+    // Validate tracks if there are any
+    let audioTracksJson = [];
+    if (audioTracks.length > 0) {
+      console.log("✅ Validating audioTracks with Zod schema...");
+      const validatedData = audioTrackSchema.safeParse({ audioTracks });
+
+      if (!validatedData.success) {
+        console.error("❌ Schema validation failed:", validatedData.error);
+        throw new Error("Invalid audio track data");
+      }
+
+      console.log(
+        "✅ Audio tracks validated successfully:",
+        validatedData.data.audioTracks
+      );
+
+      audioTracksJson = validatedData.data.audioTracks;
+    }
+
+    console.log("🔄 Preparing to store in database:", {
+      id: userProfile.id,
+      audioTracksCount: audioTracksJson.length,
+    });
+
+    console.log(
+      "Final audioTracks before saving:",
+      JSON.stringify(audioTracksJson, null, 2)
+    );
+
+    // ✅ Update the database with the filtered tracks
     const updatedBand = await db.band.update({
-      where: { userId },
+      where: { id: userProfile.id },
       data: {
-        audioTracks: validatedData.audioTracks || [],
+        audioTracks: audioTracksJson, // This will be an empty array if all tracks were deleted
       },
     });
 
+    console.log("✅ Database update successful:", updatedBand);
+
     return updatedBand;
   } catch (error) {
-    console.error("Error updating audio tracks:", error);
+    console.error("🚨 Error updating audio tracks:", error);
+    throw error;
+  }
+}
+
+// Updated getUserProfileById function to properly parse audio tracks
+export async function getUserProfileById(userId) {
+  if (!userId) throw new Error("No user ID provided");
+
+  try {
+    const user = await db.user.findFirst({
+      where: { OR: [{ id: userId }, { clerkUserId: userId }] },
+      include: { band: true, gigProvider: true },
+    });
+
+    if (!user) throw new Error("User not found for ID " + userId);
+
+    const profile = user.band || user.gigProvider || {};
+
+    // ✅ Ensure we always get fresh URLs
+    profile.audioTracks = Array.isArray(profile.audioTracks)
+      ? profile.audioTracks
+      : [];
+    profile.audioTracks = profile.audioTracks.map((track) => ({
+      ...track,
+      url: track.url.includes("alt=media")
+        ? track.url
+        : `${track.url}&alt=media`, // Ensure correct format
+    }));
+
+    console.log("🎵 Retrieved audioTracks:", profile.audioTracks); // 🛠️ Debugging log
+
+    return {
+      name: user.name || "",
+      imageUrl: user.imageUrl || "",
+      profileType: user.band ? "band" : user.gigProvider ? "gigProvider" : null,
+      profile: {
+        ...profile,
+        userId: user.id,
+        clerkUserId: user.clerkUserId,
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching profile:", error);
     throw error;
   }
 }
@@ -45,7 +162,6 @@ export async function createUserProfile({
   instagramUrl, // New field
   bandMembers, // Add this
   photos, // Add this line only
-  audioTracks, // Add this
 }) {
   try {
     const { userId: clerkUserId } = await auth();
@@ -65,7 +181,6 @@ export async function createUserProfile({
         profileType,
         name,
         imageUrl,
-        audioFiles, // Add this
       },
       create: {
         clerkUserId,
@@ -73,7 +188,6 @@ export async function createUserProfile({
         profileType,
         name,
         imageUrl,
-        audioFiles, // Add this
       },
     });
 
@@ -99,7 +213,6 @@ export async function createUserProfile({
           instagramUrl, // New field
           bandMembers, // Add this
           photos, // Add this line only
-          audioTracks, // Add this
         },
         create: {
           name,
@@ -118,7 +231,7 @@ export async function createUserProfile({
           instagramUrl, // New field
           bandMembers, // Add this
           photos, // Add this line only
-          audioTracks, // Add this
+
           user: {
             connect: {
               id: user.id,
@@ -215,41 +328,6 @@ export async function getUserProfile() {
 }
 
 //get all ids for both bands and gig providers
-export async function getUserProfileById(userId) {
-  if (!userId) {
-    throw new Error("No user ID provided");
-  }
-
-  try {
-    const user = await db.user.findFirst({
-      where: {
-        OR: [{ id: userId }, { clerkUserId: userId }],
-      },
-      include: {
-        band: true,
-        gigProvider: true,
-      },
-    });
-
-    if (!user) {
-      throw new Error("User not found for ID " + userId);
-    }
-
-    return {
-      name: user.name || "",
-      imageUrl: user.imageUrl || "",
-      profileType: user.profileType,
-      profile: {
-        ...(user.band || user.gigProvider || {}),
-        userId: user.id, // Database ID
-        clerkUserId: user.clerkUserId, // Add Clerk ID
-      },
-    };
-  } catch (error) {
-    console.error("Error fetching profile:", error);
-    throw error;
-  }
-}
 
 // actions/profile.js
 

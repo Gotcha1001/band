@@ -18,16 +18,14 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { audioTrackSchema } from "@/lib/validation";
 import AudioUpload from "@/components/AudioUpload";
-import AudioPlayer from "@/components/AudioPlayer";
 
-type AudioFormValues = {
-  audioTracks: string[];
-};
+import { AudioTrack } from "@/lib/types-profile";
+import AudioPlayer from "@/components/AudioPlayer";
 
 interface Profile {
   name: string;
   imageUrl: string;
-  profileType: "band" | "gigProvider";
+  profileType: "band" | "gigProvider" | null;
   profile: {
     name: string;
     imageUrl: string;
@@ -47,10 +45,15 @@ interface Profile {
     bandMembers: string[];
     photos: string[];
     userId: string;
-    audioTracks?: string[];
+    audioTracks?: AudioTrack[]; // Changed from string[] to AudioTrack[]
     clerkUserId: string;
   };
 }
+
+// Updated AudioFormValues type
+type AudioFormValues = {
+  audioTracks: AudioTrack[]; // Changed from string[] to AudioTrack[]
+};
 
 declare global {
   interface Window {
@@ -92,7 +95,14 @@ export default function ProfileDisplay() {
           if (!userData || !userData.profile) {
             setError("Profile not found for ID " + profileSlug);
           } else {
-            setProfile(userData);
+            setProfile({
+              ...userData,
+              profileType:
+                userData.profileType === "band" ||
+                userData.profileType === "gigProvider"
+                  ? userData.profileType
+                  : null,
+            });
           }
         } else {
           setError("No user ID provided in URL");
@@ -206,19 +216,23 @@ export default function ProfileDisplay() {
   }, [profile?.profile.audioTracks, form]);
 
   // Handle audio track updates
-  const handleAudioUpdate = async (newTracks: string[]) => {
-    try {
-      if (!profile?.profile.userId) return;
+  const handleAudioUpdate = async (newTracks: AudioTrack[]) => {
+    console.log("📤 Sending audio tracks for update:", newTracks);
 
+    if (!newTracks || newTracks.length === 0) {
+      console.error("❌ No valid audio tracks provided");
+      return;
+    }
+
+    try {
       await updateAudioTracks({
         audioTracks: newTracks,
-        userId: profile.profile.userId,
       });
 
-      // Update the form values
+      console.log("✅ Audio update completed successfully");
       form.setValue("audioTracks", newTracks);
     } catch (error) {
-      console.error("Error updating audio tracks:", error);
+      console.error("🚨 Error updating audio tracks:", error);
     }
   };
 
@@ -376,16 +390,38 @@ export default function ProfileDisplay() {
                 <h3 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-3">
                   Audio Tracks
                 </h3>
+                {/* Display audio tracks for all profiles */}
+                {profile?.profile.audioTracks &&
+                profile.profile.audioTracks.length > 0 ? (
+                  <AudioPlayer
+                    tracks={profile.profile.audioTracks}
+                    setTracks={(newTracks: AudioTrack[]) =>
+                      form.setValue("audioTracks", newTracks)
+                    }
+                    isOwnProfile={isOwnProfile}
+                  />
+                ) : (
+                  <p className="text-gray-400">No audio tracks available.</p>
+                )}
+
+                {/* Allow upload/edit only if it's the user's own profile */}
                 {isOwnProfile && (
-                  <div className="mb-6">
+                  <div className="mt-4">
+                    <h4 className="text-lg font-bold text-gray-300 mb-2">
+                      Upload New Audio Track
+                    </h4>
                     <AudioUpload
                       onUploadComplete={handleAudioUpdate}
                       existingTracks={form.watch("audioTracks") || []}
                     />
+                    {/* <AudioPlayer
+                      tracks={profile?.profile.audioTracks || []}
+                      setTracks={(newTracks: AudioTrack[]) =>
+                        form.setValue("audioTracks", newTracks)
+                      }
+                      isOwnProfile={isOwnProfile}
+                    /> */}
                   </div>
-                )}
-                {form.watch("audioTracks")?.length > 0 && (
-                  <AudioPlayer tracks={form.watch("audioTracks")} />
                 )}
               </div>
             </div>
